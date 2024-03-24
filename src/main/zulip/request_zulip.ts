@@ -1,10 +1,10 @@
 import axios from "axios";
-import { ZULIP_API_KEY, ZULIP_EMAIL, ZULIP_SERVER_URL } from "../config/env";
+import { ZULIP_API_KEY, ZULIP_EMAIL, ZULIP_SITE } from "../config/env";
 import { Issue } from "../github/request_github";
 
 export function get_user_zulip<T>() {
   axios
-    .get<T>(`${ZULIP_SERVER_URL}/api/v1/users/me`, {
+    .get<T>(`${ZULIP_SITE}/api/v1/users/me`, {
       headers: {
         Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
       },
@@ -17,7 +17,7 @@ export function get_user_zulip<T>() {
 export function get_all_streams_zulip() {
   return new Promise((resolve, reject) => {
     axios
-      .get(`${ZULIP_SERVER_URL}/api/v1/streams`, {
+      .get(`${ZULIP_SITE}/api/v1/streams`, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
         },
@@ -34,7 +34,7 @@ export function get_all_streams_zulip() {
 export function get_stream_id_zulip(stream_name: string): Promise<number> {
   return new Promise((resolve, reject) => {
     axios
-      .get(`${ZULIP_SERVER_URL}/api/v1/get_stream_id`, {
+      .get(`${ZULIP_SITE}/api/v1/get_stream_id`, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
         },
@@ -56,7 +56,7 @@ export function get_all_topics_zulip(
 ): Promise<{ name: string; max_id: number }[]> {
   return new Promise((resolve, reject) => {
     axios
-      .get(`${ZULIP_SERVER_URL}/api/v1/users/me/${stream_id}/topics`, {
+      .get(`${ZULIP_SITE}/api/v1/users/me/${stream_id}/topics`, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
         },
@@ -114,7 +114,7 @@ export async function mark_as_resolved_zulip(
   stream_name: string,
   topic_name: string,
 ) {
-  const message = await axios.get(`${ZULIP_SERVER_URL}/api/v1/messages`, {
+  const message = await axios.get(`${ZULIP_SITE}/api/v1/messages`, {
     headers: {
       Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
     },
@@ -141,7 +141,7 @@ export async function update_topic_name(
     propagate_mode: "change_all",
   });
   await axios.patch(
-    `${ZULIP_SERVER_URL}/api/v1/messages/${message_id}`,
+    `${ZULIP_SITE}/api/v1/messages/${message_id}`,
     params.toString(),
     {
       headers: {
