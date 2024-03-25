@@ -67,6 +67,15 @@ export async function create_channel_discord(channel_name: string) {
   return channel.id;
 }
 
+export async function get_channel_messages_discord(channel_id: string) {
+  const channel = await client.channels.fetch(channel_id);
+  if (!channel || channel.type !== 0) {
+    return [];
+  }
+  const messages_collection = await channel.messages.fetch();
+  return await Promise.all(messages_collection.map((m) => m.fetch()));
+}
+
 export async function clear_message_on_channel(channel_id: string) {
   const channel = await client.channels.fetch(channel_id);
   if (!channel || channel.type !== 0) {
@@ -104,4 +113,31 @@ export async function send_message_to_channel(
     .setColor(color)
     .setTimestamp();
   await channel.send({ embeds: [message] });
+}
+
+export async function update_message_discord(
+  channel_id: string,
+  message_id: string,
+  title: string,
+  list: string[],
+  color: ColorResolvable = "#339d68",
+) {
+  const message = await client.channels
+    .fetch(channel_id)
+    .then((channel) => {
+      if (channel === null || channel.type !== 0) {
+        return null;
+      }
+      return channel.messages.fetch(message_id);
+    })
+    .catch(() => null);
+  if (!message) {
+    return;
+  }
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(list.join("\n"))
+    .setColor(color)
+    .setTimestamp();
+  await message.edit({ embeds: [embed] });
 }
