@@ -76,14 +76,23 @@ export async function get_channel_messages_discord(channel_id: string) {
   return await Promise.all(messages_collection.map((m) => m.fetch()));
 }
 
-export async function clear_message_on_channel(channel_id: string) {
+export async function clear_message_on_channel(
+  channel_id: string,
+  index: number = 0,
+) {
   const channel = await client.channels.fetch(channel_id);
   if (!channel || channel.type !== 0) {
     return;
   }
   const messages = await channel.messages.fetch();
-  for (const [, message] of messages) {
-    await message.delete();
+  if (messages.size > index) {
+    // Remove all messages after the index
+    const messages_to_delete = Array.from(messages.reverse().values()).slice(
+      index + 1,
+    );
+    for (const message of messages_to_delete) {
+      await message.delete();
+    }
   }
 }
 

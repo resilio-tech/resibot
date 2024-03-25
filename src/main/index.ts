@@ -9,10 +9,8 @@ import {
   connect_discord,
   create_channel_discord,
   get_channel_id_discord,
-  get_channel_messages_discord,
   send_message_to_channel,
   send_typing_to_channel,
-  update_message_discord,
 } from "./discord/client_discord";
 import { create_server_webhook } from "./github/webhook_github";
 
@@ -86,24 +84,9 @@ export async function discord_status() {
   send_typing_to_channel(channel_id);
   const ophio = await get_closed_issues_from_repository("ophio");
   const rdb = await get_closed_issues_from_repository("resilio-db");
-  const messages = await get_channel_messages_discord(channel_id);
-  if (messages.length >= 2) {
-    const message_1 = messages[0];
-    const message_2 = messages[1];
-
-    if (
-      message_1.member?.nickname === "Resibot" &&
-      message_2.member?.nickname === "Resibot"
-    ) {
-      await update_message_discord(channel_id, message_1.id, ...ophio);
-      await update_message_discord(channel_id, message_2.id, ...rdb);
-    }
-  }
-  if (messages.length <= 0) {
-    await clear_message_on_channel(channel_id);
-    await send_message_to_channel(channel_id, ...ophio);
-    await send_message_to_channel(channel_id, ...rdb, "#59b9e8");
-  }
+  await clear_message_on_channel(channel_id);
+  await send_message_to_channel(channel_id, ...ophio);
+  await send_message_to_channel(channel_id, ...rdb, "#59b9e8");
 }
 
 function main() {
