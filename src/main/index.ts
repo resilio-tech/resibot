@@ -9,8 +9,9 @@ import {
   connect_discord,
   create_channel_discord,
   get_channel_id_discord,
+  get_channel_messages_discord,
   send_message_to_channel,
-  send_typing_to_channel,
+  update_message_discord,
 } from "./discord/client_discord";
 import { create_server_webhook } from "./github/webhook_github";
 
@@ -81,12 +82,36 @@ export async function discord_status() {
   if (channel_id === null || channel_id === "") {
     throw new Error("Could not create channel");
   }
-  send_typing_to_channel(channel_id);
+  // send_typing_to_channel(channel_id);
   const ophio = await get_closed_issues_from_repository("ophio");
   const rdb = await get_closed_issues_from_repository("resilio-db");
-  await clear_message_on_channel(channel_id);
-  await send_message_to_channel(channel_id, ...ophio);
-  await send_message_to_channel(channel_id, ...rdb, "#59b9e8");
+
+  const messages_collection = await get_channel_messages_discord(channel_id);
+  const messages = messages_collection.reverse();
+
+  let j = 0;
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (message.author.displayName !== "Resibot" || i > 1) {
+      await message.delete();
+    } else {
+      j++;
+      if (j == 1) {
+        console.log(message.embeds[0].title);
+        update_message_discord(channel_id, message.id, ...ophio);
+      }
+      if (j == 2) {
+        console.log(message.embeds[0].title);
+        update_message_discord(channel_id, message.id, ...rdb, "#59b9e8");
+      }
+    }
+  }
+
+  if (j < 2) {
+    await clear_message_on_channel(channel_id);
+    await send_message_to_channel(channel_id, ...ophio);
+    await send_message_to_channel(channel_id, ...rdb, "#59b9e8");
+  }
 }
 
 function main() {

@@ -4,6 +4,7 @@ import {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  Message,
 } from "discord.js";
 import { DISCORD_TOKEN } from "../config/env";
 
@@ -67,13 +68,22 @@ export async function create_channel_discord(channel_name: string) {
   return channel.id;
 }
 
-export async function get_channel_messages_discord(channel_id: string) {
+export async function get_channel_messages_discord(
+  channel_id: string,
+): Promise<Message<true>[]> {
   const channel = await client.channels.fetch(channel_id);
   if (!channel || channel.type !== 0) {
     return [];
   }
   const messages_collection = await channel.messages.fetch();
-  return await Promise.all(messages_collection.map((m) => m.fetch()));
+  const messages = await Promise.all(messages_collection.map((m) => m.fetch()));
+  const list = [];
+  for (const message of messages) {
+    if (message.type == 0) {
+      list.push(message);
+    }
+  }
+  return list;
 }
 
 export async function clear_message_on_channel(
@@ -84,12 +94,11 @@ export async function clear_message_on_channel(
   if (!channel || channel.type !== 0) {
     return;
   }
-  const messages = await channel.messages.fetch();
-  if (messages.size > index) {
+  const messages_collection = await channel.messages.fetch();
+  const messages = messages_collection.reverse();
+  if (messages_collection.size > index) {
     // Remove all messages after the index
-    const messages_to_delete = Array.from(messages.reverse().values()).slice(
-      index + 1,
-    );
+    const messages_to_delete = Array.from(messages.values()).slice(index);
     for (const message of messages_to_delete) {
       await message.delete();
     }
