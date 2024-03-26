@@ -11,6 +11,7 @@ import {
   get_channel_id_discord,
   get_channel_messages_discord,
   send_message_to_channel,
+  send_typing_to_channel,
   update_message_discord,
 } from "./discord/client_discord";
 import { create_server_webhook } from "./github/webhook_github";
@@ -82,7 +83,7 @@ export async function discord_status() {
   if (channel_id === null || channel_id === "") {
     throw new Error("Could not create channel");
   }
-  // send_typing_to_channel(channel_id);
+  send_typing_to_channel(channel_id);
   const ophio = await get_closed_issues_from_repository("ophio");
   const rdb = await get_closed_issues_from_repository("resilio-db");
 
