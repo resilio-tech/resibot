@@ -15,6 +15,7 @@ import {
   update_message_discord,
 } from "./discord/client_discord";
 import { create_server_webhook } from "./github/webhook_github";
+import moment from "moment";
 
 dotenv.config();
 
@@ -115,9 +116,37 @@ export async function discord_status() {
   }
 }
 
+export function interval(
+  weekDay: string,
+  hour: number,
+  minute: number,
+  func: () => void,
+) {
+  return setInterval(() => {
+    const m = moment().day(weekDay).hour(hour).minute(minute).second(0);
+    const now = moment();
+    if (!m.isSame(now, "second")) return;
+    func();
+  }, 1000);
+}
+
+export async function discord_send_message_for_meeting() {
+  const channel_name = "announcement";
+  const channel_id = await get_channel_id_discord(channel_name);
+  if (channel_id === null || channel_id === "") return;
+  send_typing_to_channel(channel_id);
+  const title = "Meeting Reminder";
+  const list = [
+    "General Meeting will start in 10 minutes",
+    "Please join the meeting",
+  ];
+  await send_message_to_channel(channel_id, title, list);
+}
+
 function main() {
   create_server_webhook();
   discord_status().then().catch(console.error);
+  // interval("Monday", 11, 20, discord_send_message_for_meeting);
 }
 
 try {

@@ -28,6 +28,7 @@
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.1",
-    "verify-github-webhook-secret": "^2.0.8"
+    "verify-github-webhook-secret": "^2.0.8",
+    "moment": "^2.30.1"
   }
 }
