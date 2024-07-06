@@ -19,5 +19,5 @@ module.exports = {
             }
         ]
     },
-    "ignorePatterns": ["src/**/*.test.ts", "src/frontend/generated/*"]
+    "ignorePatterns": ["configs/*", "src/**/*.test.ts", "src/frontend/generated/*"]
 }
