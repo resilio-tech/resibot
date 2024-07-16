@@ -114,6 +114,20 @@ export async function mark_as_resolved_zulip(
   stream_name: string,
   topic_name: string,
 ) {
+  const messages = await get_lasts_messages_on_topic(stream_name, topic_name);
+  update_topic_name(messages[0].id, `✔ ${topic_name}`).then();
+}
+
+export interface Message {
+  id: number;
+  content: string;
+  sender_email: string;
+}
+
+export async function get_lasts_messages_on_topic(
+  stream_name: string,
+  topic_name: string,
+): Promise<Message[]> {
   const message = await axios.get(`${ZULIP_SITE}/api/v1/messages`, {
     headers: {
       Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
@@ -125,9 +139,7 @@ export async function mark_as_resolved_zulip(
       anchor: "newest",
     },
   });
-  const messages = message.data.messages;
-
-  update_topic_name(messages[0].id, `✔ ${topic_name}`).then();
+  return message.data.messages;
 }
 
 export async function update_topic_name(
@@ -149,4 +161,22 @@ export async function update_topic_name(
       },
     },
   );
+}
+
+export async function post_message_on_topic(
+  stream_name: string,
+  topic_name: string,
+  message: string,
+): Promise<void> {
+  const params = new URLSearchParams({
+    type: "stream",
+    to: stream_name,
+    subject: topic_name,
+    content: message,
+  });
+  await axios.post(`${ZULIP_SITE}/api/v1/messages`, params.toString(), {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
+    },
+  });
 }

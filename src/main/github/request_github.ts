@@ -9,14 +9,17 @@ export interface Issue {
   state: string;
 }
 
-function get_issues_from_github(): Promise<Issue[]> {
+function get_issues_from_github(repository_name: string): Promise<Issue[]> {
   return new Promise((resolve, reject) => {
     axios
-      .get("https://api.github.com/repos/resilio-tech/ophio/issues", {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
+      .get(
+        `https://api.github.com/repos/resilio-tech/${repository_name}/issues?per_page=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+          },
         },
-      })
+      )
       .then((response) => {
         resolve(response.data);
       })
@@ -26,11 +29,9 @@ function get_issues_from_github(): Promise<Issue[]> {
   });
 }
 
-export async function get_issues_list() {
-  // const topics = await get_topics_for_issues();
-  // console.log(topics);
+export async function get_issues_list(repository_name: string) {
   const issues: Issue[] = [];
-  const r = await get_issues_from_github();
+  const r = await get_issues_from_github(repository_name);
   for (const i of r) {
     issues.push({
       id: i.id,
@@ -66,6 +67,54 @@ export async function get_issue_by_number(
   });
 }
 
+export async function get_issue_by_number_graphql(
+  repository_name: string,
+  issue_number: number,
+): Promise<
+  Issue & {
+    closedByPullRequestsReferences: {
+      nodes: {
+        number: number;
+      }[];
+    };
+  }
+> {
+  return new Promise((resolve, reject) => {
+    axios
+      .post(
+        `https://api.github.com/graphql`,
+        {
+          query: `query {
+            repository(owner: "resilio-tech", name: "${repository_name}") {
+              issue(number: ${issue_number}) {
+                id
+                number
+                title
+                state
+                closedByPullRequestsReferences(first: 100) {
+                    nodes {
+                        number
+                    }
+                }
+              }
+            }
+          }`,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+          },
+        },
+      )
+      .then((response) => {
+        resolve(response.data.data.repository.issue);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+}
+
 export async function create_issue_comment(
   repository_name: string,
   issue_id: number,
@@ -91,4 +140,61 @@ export async function create_issue_comment(
         reject(error.response.data);
       });
   });
+}
+
+export interface GithubRelease {
+  id: number;
+  tag_name: string;
+  name: string;
+  body: string;
+}
+
+export async function get_releases_from_repository(
+  repository_name: string,
+): Promise<GithubRelease[]> {
+  return new Promise((resolve, reject) => {
+    axios
+      .get(
+        `https://api.github.com/repos/resilio-tech/${repository_name}/releases`,
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+          },
+        },
+      )
+      .then((response) => {
+        resolve(response.data);
+      })
+      .catch((error) => {
+        reject(error.response.data);
+      });
+  });
+}
+
+export interface Release {
+  name: string;
+  pull_requests: number[];
+}
+
+export async function get_pull_requests_by_releases(
+  repository_name: string,
+): Promise<Release[]> {
+  const github_releases = await get_releases_from_repository(repository_name);
+  const releases = [];
+  for (const r of github_releases) {
+    const regex = /\/pull\/(\d+)/gm;
+    const matches = r.body
+      .match(regex)
+      ?.map((m) => parseInt(m.replace("/pull/", "")));
+
+    if (!matches) continue;
+
+    const release = {
+      name: r.name,
+      pull_requests: matches,
+    };
+
+    releases.push(release);
+  }
+  return releases;
 }

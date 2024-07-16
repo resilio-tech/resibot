@@ -1,9 +1,15 @@
 import dotenv from "dotenv";
 import {
+  get_lasts_messages_on_topic,
   get_name_of_stream_from_repository,
   get_topics_for_issues,
+  post_message_on_topic,
 } from "./zulip/request_zulip";
-import { get_issue_by_number } from "./github/request_github";
+import {
+  get_issue_by_number,
+  get_issue_by_number_graphql,
+  get_pull_requests_by_releases,
+} from "./github/request_github";
 import {
   clear_message_on_channel,
   connect_discord,
@@ -14,8 +20,8 @@ import {
   send_typing_to_channel,
   update_message_discord,
 } from "./discord/client_discord";
-import { create_server_webhook } from "./github/webhook_github";
 import moment from "moment";
+import { create_server_webhook } from "./github/webhook_github";
 
 dotenv.config();
 
@@ -143,8 +149,73 @@ export async function discord_send_message_for_meeting() {
   await send_message_to_channel(channel_id, title, list);
 }
 
-function main() {
+export async function check_closed_issues_by_releases(
+  repository_name: string,
+): Promise<void> {
+  const releases = await get_pull_requests_by_releases(repository_name);
+  // console.log(releases);
+  const stream_name = get_name_of_stream_from_repository(repository_name);
+  if (stream_name === undefined) return;
+
+  const topics = await get_topics_for_issues(stream_name);
+  for (const t of topics) {
+    const topic_issues = await Promise.all(
+      t.issues.map(
+        async (i) => await get_issue_by_number_graphql(repository_name, i),
+      ),
+    );
+    if (
+      topic_issues.every(
+        (i) => i === null || i.closedByPullRequestsReferences.nodes.length <= 0,
+      )
+    )
+      continue;
+
+    const close_topic = topic_issues.map((i) => {
+      const c: Set<string> = new Set([]);
+      if (i === null) return c;
+      if (i.state !== "CLOSED") return c;
+      for (const n of i.closedByPullRequestsReferences.nodes) {
+        for (const r of releases) {
+          if (r.pull_requests.includes(n.number)) {
+            c.add(r.name);
+            break;
+          }
+        }
+      }
+      return c;
+    });
+    for (const i of topic_issues) {
+      if (i === null) continue;
+      for (const n of i.closedByPullRequestsReferences.nodes) {
+        for (const r of releases) {
+          if (!r.pull_requests.includes(n.number)) continue;
+        }
+      }
+    }
+    if (close_topic.every((c) => c.size > 0)) {
+      const messages = await get_lasts_messages_on_topic(stream_name, t.name);
+      const rels = Array.from(
+        new Set(close_topic.flatMap((c) => Array.from(c))),
+      );
+      if (
+        messages.some((m) =>
+          m.content.includes(`Resolved by release: ${rels.join(", ")}`),
+        )
+      )
+        continue;
+      post_message_on_topic(
+        stream_name,
+        t.name,
+        `Resolved by release: ${rels.join(", ")}\nCheck that the issue is really resolved and close it.`,
+      );
+    }
+  }
+}
+
+async function main() {
   create_server_webhook();
+  await check_closed_issues_by_releases("ophio");
   discord_status().then().catch(console.error);
   // interval("Monday", 11, 20, discord_send_message_for_meeting);
 }
