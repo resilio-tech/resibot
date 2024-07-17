@@ -7,6 +7,9 @@ export interface Issue {
   number: number;
   title: string;
   state: string;
+  labels: {
+    name: string;
+  }[];
 }
 
 function get_issues_from_github(repository_name: string): Promise<Issue[]> {
@@ -39,6 +42,7 @@ export async function get_issues_list(repository_name: string) {
       number: i.number,
       title: i.title,
       state: i.state,
+      labels: [],
     });
   }
   return issues;
@@ -62,7 +66,7 @@ export async function get_issue_by_number(
         resolve(response.data);
       })
       .catch((error) => {
-        reject(error.response.data);
+        reject(error.response);
       });
   });
 }
@@ -197,4 +201,84 @@ export async function get_pull_requests_by_releases(
     releases.push(release);
   }
   return releases;
+}
+
+export interface ProjectsQuery {
+  organization: {
+    projectsV2: {
+      nodes: {
+        title: string;
+        closed: boolean;
+        items: {
+          nodes: {
+            type: string;
+            content: {
+              number: number;
+            };
+            status: {
+              name: string;
+            } | null;
+            size: {
+              name: string;
+            } | null;
+          }[];
+        };
+      }[];
+    };
+  };
+}
+
+export async function get_last_projects(): Promise<ProjectsQuery> {
+  const projects = await axios
+    .post(
+      "https://api.github.com/graphql",
+      {
+        query: `query {
+        organization(login: "resilio-tech") {
+          projectsV2(first: 20) {
+            nodes {
+              title
+              closed
+              items {
+                nodes {
+                  type
+                  content {
+                    ... on Issue {
+                      number
+                    }
+                    ... on PullRequest {
+                      number
+                    }
+                  }
+                  status: fieldValueByName(name: "Status") {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                    }
+                  }
+                  size: fieldValueByName(name: "Size") {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+        },
+      },
+    )
+    .catch((error) => {
+      console.log(error.response.data);
+      return error.response;
+    });
+
+  // console.log(JSON.stringify(projects.data.error, null, 2));
+  // console.log(JSON.stringify(projects.data.data, null, 2));
+  return projects.data.data;
 }

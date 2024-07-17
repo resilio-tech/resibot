@@ -8,6 +8,7 @@ import {
 import {
   get_issue_by_number,
   get_issue_by_number_graphql,
+  get_last_projects,
   get_pull_requests_by_releases,
 } from "./github/request_github";
 import {
@@ -21,7 +22,6 @@ import {
   update_message_discord,
 } from "./discord/client_discord";
 import moment from "moment";
-import { create_server_webhook } from "./github/webhook_github";
 
 dotenv.config();
 
@@ -213,12 +213,110 @@ export async function check_closed_issues_by_releases(
   }
 }
 
+export interface ProjectItem {
+  number: number;
+  closed: boolean;
+  column: string;
+  labels: string[];
+  fieldSize: string | null;
+}
+
+export interface Project {
+  name: string;
+  countIssueWithoutLabel: number;
+  countIssueDoneWithoutSize: number;
+  velocityPrediction: number;
+  velocityActual: number;
+}
+
+export function itemReduce(
+  key: keyof Pick<ProjectItem, "labels" | "fieldSize">,
+) {
+  return (acc: number, item: ProjectItem) => {
+    if (item[key] === null) return acc;
+    if (key === "labels") {
+      if (item["labels"].some((l) => l.toLowerCase().includes("x-large")))
+        return acc + 8;
+      if (item["labels"].some((l) => l.toLowerCase().includes("large")))
+        return acc + 6;
+      if (item["labels"].some((l) => l.toLowerCase().includes("medium")))
+        return acc + 4;
+      if (item["labels"].some((l) => l.toLowerCase().includes("small")))
+        return acc + 2;
+      if (item["labels"].some((l) => l.toLowerCase().includes("tiny")))
+        return acc + 1;
+      return acc;
+    }
+    if (key === "fieldSize") {
+      if (item["fieldSize"] === null) return acc;
+      if (item["fieldSize"].toLowerCase().includes("x-large")) return acc + 8;
+      if (item["fieldSize"].toLowerCase().includes("large")) return acc + 6;
+      if (item["fieldSize"].toLowerCase().includes("medium")) return acc + 4;
+      if (item["fieldSize"].toLowerCase().includes("small")) return acc + 2;
+      if (item["fieldSize"].toLowerCase().includes("tiny")) return acc + 1;
+      return acc;
+    }
+    return acc;
+  };
+}
+
+async function get_project_velocity() {
+  const query = await get_last_projects();
+  const projects_query = query.organization.projectsV2.nodes.reverse();
+  const projects: Project[] = [];
+
+  for (const p of projects_query) {
+    if (!p.title.includes("Sprint")) continue;
+    const projectItems: ProjectItem[] = [];
+    for (const i of p.items.nodes) {
+      const repository_name = p.title.includes("RDB") ? "resilio-db" : "ophio";
+      const issue = await get_issue_by_number(
+        repository_name,
+        i.content.number,
+      ).catch(() => null);
+      if (issue === null) continue;
+      if (i.status === null || i.status.name.toLowerCase().includes("buffer"))
+        continue;
+      projectItems.push({
+        number: i.content.number,
+        closed: issue.state === "closed",
+        column: i.status.name,
+        labels: issue.labels.map((l) => l.name),
+        fieldSize: i.size?.name ?? null,
+      });
+    }
+
+    projects.push({
+      name: p.title,
+      countIssueWithoutLabel: projectItems.filter(
+        (i) =>
+          !i.labels.some((l) =>
+            ["x-large", "large", "medium", "small", "tiny"].some((e) =>
+              l.toLowerCase().includes(e),
+            ),
+          ),
+      ).length,
+      countIssueDoneWithoutSize: projectItems.filter(
+        (i) =>
+          !["x-large", "large", "medium", "small", "tiny"].some((e) =>
+            i.fieldSize?.toLowerCase().includes(e),
+          ) && i.closed,
+      ).length,
+      velocityPrediction: projectItems.reduce(itemReduce("labels"), 0),
+      velocityActual: projectItems.reduce(itemReduce("fieldSize"), 0),
+    });
+  }
+
+  console.log(JSON.stringify(projects, null, 2));
+}
+
 async function main() {
-  create_server_webhook();
-  await check_closed_issues_by_releases("ophio");
-  await check_closed_issues_by_releases("resilio-db");
-  discord_status().then().catch(console.error);
+  // create_server_webhook();
+  // await check_closed_issues_by_releases("ophio");
+  // await check_closed_issues_by_releases("resilio-db");
+  // discord_status().then().catch(console.error);
   // interval("Monday", 11, 20, discord_send_message_for_meeting);
+  get_project_velocity();
 }
 
 try {
