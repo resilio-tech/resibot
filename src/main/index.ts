@@ -22,6 +22,7 @@ import {
   update_message_discord,
 } from "./discord/client_discord";
 import moment from "moment";
+import { create_server_webhook } from "./github/webhook_github";
 
 dotenv.config();
 
@@ -82,7 +83,6 @@ export async function get_closed_issues_from_repository(
 
 export async function discord_status() {
   const channel_name = "issues-support";
-  await connect_discord();
   let channel_id = await get_channel_id_discord(channel_name);
   if (channel_id === null || channel_id === "") {
     channel_id = await create_channel_discord(channel_name);
@@ -307,14 +307,55 @@ async function get_project_velocity() {
     });
   }
 
-  console.log(JSON.stringify(projects, null, 2));
+  const channel_name = "sprints-velocity";
+  let channel_id = await get_channel_id_discord(channel_name);
+  if (channel_id === null || channel_id === "") {
+    channel_id = await create_channel_discord(channel_name);
+  }
+  if (channel_id === null || channel_id === "") {
+    throw new Error("Could not create channel");
+  }
+
+  const messages_collection = await get_channel_messages_discord(channel_id);
+  const messages = messages_collection.reverse();
+
+  send_typing_to_channel(channel_id);
+
+  for (const project of projects) {
+    const rdb = project.name.toLowerCase().includes("rdb");
+    const title = `**${project.name}**`;
+    const list = [
+      `**Issues without label:** *${project.countIssueWithoutLabel}*`,
+      `**Issues done without size:** *${project.countIssueDoneWithoutSize}*`,
+      `**Velocity Prediction:** *${project.velocityPrediction}*`,
+      `**Velocity Actual:** *${project.velocityActual}*`,
+    ];
+    const message = messages.find((m) => m.embeds[0].title === title);
+    if (message) {
+      update_message_discord(
+        channel_id,
+        message.id,
+        title,
+        list,
+        rdb ? "#59b9e8" : "#339d68",
+      );
+    } else {
+      await send_message_to_channel(
+        channel_id,
+        title,
+        list,
+        rdb ? "#59b9e8" : "#339d68",
+      );
+    }
+  }
 }
 
 async function main() {
-  // create_server_webhook();
-  // await check_closed_issues_by_releases("ophio");
-  // await check_closed_issues_by_releases("resilio-db");
-  // discord_status().then().catch(console.error);
+  create_server_webhook();
+  await connect_discord();
+  await check_closed_issues_by_releases("ophio");
+  await check_closed_issues_by_releases("resilio-db");
+  discord_status().then().catch(console.error);
   // interval("Monday", 11, 20, discord_send_message_for_meeting);
   get_project_velocity();
 }
