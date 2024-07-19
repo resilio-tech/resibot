@@ -225,14 +225,17 @@ export interface Project {
   name: string;
   countIssueWithoutLabel: number;
   countIssueDoneWithoutSize: number;
+  sizeOfSprint: number;
   velocityPrediction: number;
   velocityActual: number;
 }
 
 export function itemReduce(
   key: keyof Pick<ProjectItem, "labels" | "fieldSize">,
+  filter?: (item: ProjectItem) => boolean,
 ) {
   return (acc: number, item: ProjectItem) => {
+    if (filter && !filter(item)) return acc;
     if (item[key] === null) return acc;
     if (key === "labels") {
       if (item["labels"].some((l) => l.toLowerCase().includes("x-large")))
@@ -300,9 +303,13 @@ async function get_project_velocity() {
         (i) =>
           !["x-large", "large", "medium", "small", "tiny"].some((e) =>
             i.fieldSize?.toLowerCase().includes(e),
-          ) && i.closed,
+          ) && i.column.toLowerCase().includes("done"),
       ).length,
-      velocityPrediction: projectItems.reduce(itemReduce("labels"), 0),
+      sizeOfSprint: projectItems.reduce(itemReduce("labels"), 0),
+      velocityPrediction: projectItems.reduce(
+        itemReduce("fieldSize", (i) => i.column.toLowerCase().includes("done")),
+        0,
+      ),
       velocityActual: projectItems.reduce(itemReduce("fieldSize"), 0),
     });
   }
@@ -327,6 +334,7 @@ async function get_project_velocity() {
     const list = [
       `**Issues without label:** *${project.countIssueWithoutLabel}*`,
       `**Issues done without size:** *${project.countIssueDoneWithoutSize}*`,
+      `**Size total of Sprint:** *${project.sizeOfSprint}*`,
       `**Velocity Prediction:** *${project.velocityPrediction}*`,
       `**Velocity Actual:** *${project.velocityActual}*`,
     ];
