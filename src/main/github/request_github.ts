@@ -207,6 +207,8 @@ export interface ProjectsQuery {
   organization: {
     projectsV2: {
       nodes: {
+        id: string;
+        createdAt: string;
         title: string;
         closed: boolean;
         items: {
@@ -237,6 +239,8 @@ export async function get_last_projects(): Promise<ProjectsQuery> {
         organization(login: "resilio-tech") {
           projectsV2(first: 20) {
             nodes {
+              id
+              createdAt
               title
               closed
               items {

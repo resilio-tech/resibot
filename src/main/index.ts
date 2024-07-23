@@ -222,6 +222,7 @@ export interface ProjectItem {
 }
 
 export interface Project {
+  id: string;
   name: string;
   countIssueWithoutLabel: number;
   countIssueDoneWithoutSize: number;
@@ -265,7 +266,9 @@ export function itemReduce(
 
 async function get_project_velocity() {
   const query = await get_last_projects();
-  const projects_query = query.organization.projectsV2.nodes.reverse();
+  const projects_query = query.organization.projectsV2.nodes.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
   const projects: Project[] = [];
 
   for (const p of projects_query) {
@@ -290,6 +293,7 @@ async function get_project_velocity() {
     }
 
     projects.push({
+      id: p.id,
       name: p.title,
       countIssueWithoutLabel: projectItems.filter(
         (i) =>
@@ -332,6 +336,7 @@ async function get_project_velocity() {
     const rdb = project.name.toLowerCase().includes("rdb");
     const title = `**${project.name}**`;
     const list = [
+      `id: ${project.id}`,
       `**Issues without label:** *${project.countIssueWithoutLabel}*`,
       `**Issues done without size:** *${project.countIssueDoneWithoutSize}*`,
       `**Size total of Sprint:** *${project.sizeOfSprint}*`,
@@ -340,7 +345,11 @@ async function get_project_velocity() {
     ];
     const message = messages
       .filter((m) => m.author.displayName == "Resibot")
-      .find((m) => m.embeds[0].title === title);
+      .find(
+        (m) =>
+          m.embeds[0].description?.includes(project.id) === true ||
+          m.embeds[0].title === title,
+      );
     if (message) {
       update_message_discord(
         channel_id,
