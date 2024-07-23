@@ -267,7 +267,7 @@ export function itemReduce(
 async function get_project_velocity() {
   const query = await get_last_projects();
   const projects_query = query.organization.projectsV2.nodes.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
   const projects: Project[] = [];
 
