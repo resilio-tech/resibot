@@ -10,6 +10,7 @@ import {
   get_issue_by_number_graphql,
   get_last_projects,
   get_pull_requests_by_releases,
+  Issue,
 } from "./github/request_github";
 import {
   clear_message_on_channel,
@@ -37,10 +38,13 @@ export async function check_closed_issues(
   const topics = await get_topics_for_issues(stream_name);
   for (const t of topics) {
     const topic_issues = await Promise.all(
-      t.issues.map(async (i) => await get_issue_by_number(repository_name, i)),
+      t.issues.map(
+        async (i) =>
+          await get_issue_by_number(repository_name, i).catch(() => null),
+      ),
     );
-    t.related_issues = topic_issues;
-    if (topic_issues.every((i) => i.state === "closed")) {
+    t.related_issues = topic_issues.filter<Issue>((i) => i !== null);
+    if (t.related_issues.every((i) => i.state === "closed")) {
       const text = "Topic should be resolved: " + t.name;
       console.log(text);
       texts.push(text);
