@@ -341,11 +341,11 @@ async function get_project_velocity() {
     const title = `**${project.name}**`;
     const list = [
       `id: ${project.id}`,
-      `**Issues without label:** *${project.countIssueWithoutLabel}*`,
-      `**Issues done without size:** *${project.countIssueDoneWithoutSize}*`,
-      `**Size total of Sprint:** *${project.sizeOfSprint}*`,
-      `**Velocity Prediction:** *${project.velocityPrediction}*`,
-      `**Velocity Actual:** *${project.velocityActual}*`,
+      `**Number of issues without label (excluding buffer):** *${project.countIssueWithoutLabel}* ;`,
+      `**Number of issues done without size:** *${project.countIssueDoneWithoutSize}* ;`,
+      `**Size of Sprint (based on labels, exclude buffer):** *${project.sizeOfSprint}* ;`,
+      `**Velocity actual (issues done based on size):** *${project.velocityActual}* ;`,
+      `**Velocity prediction (issues done based on labels):** *${project.velocityPrediction}* ;`,
     ];
     const message = messages
       .filter((m) => m.author.displayName == "Resibot")
