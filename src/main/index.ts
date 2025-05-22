@@ -218,25 +218,30 @@ export async function check_closed_issues_by_releases(
 }
 
 export interface ProjectItem {
+  sprint: string,
   number: number;
   closed: boolean;
   column: string;
   labels: string[];
-  fieldSize: string | null;
+  fieldEstimatedSize: string | null;
+  fieldTimeSpent: string | null;
 }
 
 export interface Project {
   id: string;
   name: string;
   countIssueWithoutLabel: number;
-  countIssueDoneWithoutSize: number;
+  countIssueDoneWithoutTimeSpent: number;
   sizeOfSprint: number;
   velocityPrediction: number;
   velocityActual: number;
 }
 
 export function itemReduce(
-  key: keyof Pick<ProjectItem, "labels" | "fieldSize">,
+  key: keyof Pick<
+    ProjectItem,
+    "labels" | "fieldTimeSpent" | "fieldEstimatedSize"
+  >,
   filter?: (item: ProjectItem) => boolean,
 ) {
   return (acc: number, item: ProjectItem) => {
@@ -255,74 +260,119 @@ export function itemReduce(
         return acc + 1;
       return acc;
     }
-    if (key === "fieldSize") {
-      if (item["fieldSize"] === null) return acc;
-      if (item["fieldSize"].toLowerCase().includes("x-large")) return acc + 8;
-      if (item["fieldSize"].toLowerCase().includes("large")) return acc + 6;
-      if (item["fieldSize"].toLowerCase().includes("medium")) return acc + 4;
-      if (item["fieldSize"].toLowerCase().includes("small")) return acc + 2;
-      if (item["fieldSize"].toLowerCase().includes("tiny")) return acc + 1;
+    if (key === "fieldTimeSpent") {
+      if (item["fieldTimeSpent"] === null) return acc;
+      if (item["fieldTimeSpent"].toLowerCase().includes("x-large"))
+        return acc + 8;
+      if (item["fieldTimeSpent"].toLowerCase().includes("large"))
+        return acc + 6;
+      if (item["fieldTimeSpent"].toLowerCase().includes("medium"))
+        return acc + 4;
+      if (item["fieldTimeSpent"].toLowerCase().includes("small"))
+        return acc + 2;
+      if (item["fieldTimeSpent"].toLowerCase().includes("tiny")) return acc + 1;
+      return acc;
+    }
+    if (key === "fieldEstimatedSize") {
+      if (item["fieldEstimatedSize"] === null) return acc;
+      if (item["fieldEstimatedSize"].toLowerCase().includes("x-large"))
+        return acc + 8;
+      if (item["fieldEstimatedSize"].toLowerCase().includes("large"))
+        return acc + 6;
+      if (item["fieldEstimatedSize"].toLowerCase().includes("medium"))
+        return acc + 4;
+      if (item["fieldEstimatedSize"].toLowerCase().includes("small"))
+        return acc + 2;
+      if (item["fieldEstimatedSize"].toLowerCase().includes("tiny"))
+        return acc + 1;
       return acc;
     }
     return acc;
   };
 }
 
-async function get_project_velocity() {
+async function get_sprints_velocity() {
+  // Retrieve all projects from the repo
   const query = await get_last_projects();
+
+  // Sort them from old to recent
   const projects_query = query.organization.projectsV2.nodes.sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
-  const projects: Project[] = [];
+
+  // Prepare object to regroup issues by sprint
+  const sprints: Record<string, Project> = {};
 
   for (const p of projects_query) {
-    if (!p.title.includes("Sprint")) continue;
-    const projectItems: ProjectItem[] = [];
+    // Only consider Roadmap projects
+    if (!p.title.includes("Roadmap")) continue;
+
     for (const i of p.items.nodes) {
-      const repository_name = p.title.includes("RDB") ? "resilio-db" : "ophio";
-      const issue = await get_issue_by_number(
-        repository_name,
-        i.content.number,
-      ).catch(() => null);
-      if (issue === null) continue;
-      if (i.status === null || i.status.name.toLowerCase().includes("buffer"))
+      // Skip items that are incomplete or not linked to an issue
+      if (
+        i.status === null ||
+        !i.sprint?.title ||
+        !i.content?.number
+      )
         continue;
-      projectItems.push({
+
+      const sprintTitle = i.sprint.title;
+      const repository_name = p.title.includes("RDB") ? "resilio-db" : "ophio";
+
+      const issue = await get_issue_by_number(repository_name, i.content.number).catch(() => null);
+      if (issue === null) continue;
+
+      // Convert item to internal format
+      const item: ProjectItem = {
+        sprint: sprintTitle,
         number: i.content.number,
         closed: issue.state === "closed",
         column: i.status.name,
         labels: issue.labels.map((l) => l.name),
-        fieldSize: i.size?.name ?? null,
-      });
-    }
+        fieldEstimatedSize: i.estimated_size?.name ?? null,
+        fieldTimeSpent: i.time_spent?.name ?? null,
+      };
 
-    projects.push({
-      id: p.id,
-      name: p.title,
-      countIssueWithoutLabel: projectItems.filter(
-        (i) =>
-          !i.labels.some((l) =>
-            ["x-large", "large", "medium", "small", "tiny"].some((e) =>
-              l.toLowerCase().includes(e),
-            ),
-          ),
-      ).length,
-      countIssueDoneWithoutSize: projectItems.filter(
-        (i) =>
-          !["x-large", "large", "medium", "small", "tiny"].some((e) =>
-            i.fieldSize?.toLowerCase().includes(e),
-          ) && i.column.toLowerCase().includes("done"),
-      ).length,
-      sizeOfSprint: projectItems.reduce(itemReduce("labels"), 0),
-      velocityPrediction: projectItems.reduce(
-        itemReduce("fieldSize", (i) => i.column.toLowerCase().includes("done")),
-        0,
-      ),
-      velocityActual: projectItems.reduce(itemReduce("fieldSize"), 0),
-    });
+      // Initialize sprint entry if it doesn't exist
+      if (!sprints[sprintTitle]) {
+        sprints[sprintTitle] = {
+          id: sprintTitle,
+          name: sprintTitle,
+          countIssueWithoutLabel: 0,
+          countIssueDoneWithoutTimeSpent: 0,
+          sizeOfSprint: 0,
+          velocityPrediction: 0,
+          velocityActual: 0,
+        };
+      }
+
+      // Update sprint metrics for this issue
+      const sprint = sprints[sprintTitle];
+      const hasSizeLabel = item.labels.some((l) =>
+        ["x-large", "large", "medium", "small", "tiny"].some((e) =>
+          l.toLowerCase().includes(e),
+        )
+      );
+      const timeSpentIncludesSize = ["x-large", "large", "medium", "small", "tiny"].some((e) =>
+        item.fieldTimeSpent?.toLowerCase().includes(e),
+      );
+      const isDone = item.column.toLowerCase().includes("done");
+
+      if (!hasSizeLabel) {
+        sprint.countIssueWithoutLabel++;
+      }
+      if (!timeSpentIncludesSize && isDone) {
+        sprint.countIssueDoneWithoutTimeSpent++;
+      }
+      sprint.sizeOfSprint += itemReduce("fieldEstimatedSize")(0, item);
+      sprint.velocityActual += itemReduce("fieldTimeSpent")(0, item);
+      if (isDone) {
+        sprint.velocityPrediction += itemReduce("fieldTimeSpent")(0, item);
+      }
+    }
   }
 
-  const channel_name = "sprints-velocity";
+  const channel_name = "sprints-velocity-new";
   let channel_id = await get_channel_id_discord(channel_name);
   if (channel_id === null || channel_id === "") {
     channel_id = await create_channel_discord(channel_name);
@@ -336,22 +386,25 @@ async function get_project_velocity() {
 
   send_typing_to_channel(channel_id);
 
-  for (const project of projects) {
-    const rdb = project.name.toLowerCase().includes("rdb");
-    const title = `**${project.name}**`;
+  for (const key in sprints) {
+    const sprint = sprints[key];
+
+    const rdb = sprint.name.toLowerCase().includes("rdb");
+    const title = `**${sprint.name}**`;
     const list = [
-      `id: ${project.id}`,
-      `**Number of issues without label (excluding buffer):** *${project.countIssueWithoutLabel}* ;`,
-      `**Number of issues done without size:** *${project.countIssueDoneWithoutSize}* ;`,
-      `**Size of Sprint (based on labels, exclude buffer):** *${project.sizeOfSprint}* ;`,
-      `**Velocity actual (issues done based on size):** *${project.velocityActual}* ;`,
-      `**Velocity prediction (issues done based on labels):** *${project.velocityPrediction}* ;`,
+      `id: ${sprint.id}`,
+      `**Number of issues without label (excluding buffer):** *${sprint.countIssueWithoutLabel}* ;`,
+      `**Number of issues done without size:** *${sprint.countIssueDoneWithoutTimeSpent}* ;`,
+      `**Size of Sprint (based on labels, exclude buffer):** *${sprint.sizeOfSprint}* ;`,
+      `**Velocity actual (issues done based on size):** *${sprint.velocityActual}* ;`,
+      `**Velocity prediction (issues done based on labels):** *${sprint.velocityPrediction}* ;`,
     ];
+    // Try to find an existing message to update
     const message = messages
       .filter((m) => m.author.displayName == "Resibot")
       .find(
         (m) =>
-          m.embeds[0].description?.includes(project.id) === true ||
+          m.embeds[0].description?.includes(sprint.id) === true ||
           m.embeds[0].title === title,
       );
     if (message) {
@@ -380,7 +433,7 @@ async function main() {
   await check_closed_issues_by_releases("resilio-db");
   discord_status().then().catch(console.error);
   // interval("Monday", 11, 20, discord_send_message_for_meeting);
-  get_project_velocity();
+  get_sprints_velocity();
 }
 
 try {
