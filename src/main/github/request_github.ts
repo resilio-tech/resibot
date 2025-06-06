@@ -220,9 +220,17 @@ export interface ProjectsQuery {
             status: {
               name: string;
             } | null;
-            size: {
+            estimated_size: {
               name: string;
             } | null;
+            time_spent: {
+              name: string;
+            } | null;
+            sprint: {
+              title: string;
+              startDate: string;
+              duration: number;
+            };
           }[];
         };
       }[];
@@ -259,11 +267,23 @@ export async function get_last_projects(): Promise<ProjectsQuery> {
                       name
                     }
                   }
-                  size: fieldValueByName(name: "Size") {
+                  estimated_size: fieldValueByName(name: "Estimated size") {
                     ... on ProjectV2ItemFieldSingleSelectValue {
                       name
                     }
                   }
+                  time_spent: fieldValueByName(name: "Time spent") {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                    }
+                  }
+                  sprint: fieldValueByName(name: "Sprint") {
+                    ... on ProjectV2ItemFieldIterationValue {
+                      title
+                      startDate
+                      duration
+                    }
+                  }  
                 }
               }
             }
