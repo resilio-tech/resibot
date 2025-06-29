@@ -231,7 +231,7 @@ export interface Project {
   title: string;
   id: string;
   name: string;
-  countIssueWithoutLabel: number;
+  countIssueWithoutEstimated: number;
   countIssueDoneWithoutTimeSpent: number;
   sizeOfSprint: number;
   velocityPrediction: number;
@@ -261,31 +261,13 @@ export function itemReduce(
         return acc + 1;
       return acc;
     }
-    if (key === "fieldTimeSpent") {
-      if (item["fieldTimeSpent"] === null) return acc;
-      if (item["fieldTimeSpent"].toLowerCase().includes("x-large"))
-        return acc + 8;
-      if (item["fieldTimeSpent"].toLowerCase().includes("large"))
-        return acc + 6;
-      if (item["fieldTimeSpent"].toLowerCase().includes("medium"))
-        return acc + 4;
-      if (item["fieldTimeSpent"].toLowerCase().includes("small"))
-        return acc + 2;
-      if (item["fieldTimeSpent"].toLowerCase().includes("tiny")) return acc + 1;
-      return acc;
-    }
-    if (key === "fieldEstimatedSize") {
-      if (item["fieldEstimatedSize"] === null) return acc;
-      if (item["fieldEstimatedSize"].toLowerCase().includes("x-large"))
-        return acc + 8;
-      if (item["fieldEstimatedSize"].toLowerCase().includes("large"))
-        return acc + 6;
-      if (item["fieldEstimatedSize"].toLowerCase().includes("medium"))
-        return acc + 4;
-      if (item["fieldEstimatedSize"].toLowerCase().includes("small"))
-        return acc + 2;
-      if (item["fieldEstimatedSize"].toLowerCase().includes("tiny"))
-        return acc + 1;
+    if (key === "fieldTimeSpent" || key === "fieldEstimatedSize") {
+      if (item[key] === null) return acc;
+      if (item[key].toLowerCase().includes("x-large")) return acc + 8;
+      if (item[key].toLowerCase().includes("large")) return acc + 6;
+      if (item[key].toLowerCase().includes("medium")) return acc + 4;
+      if (item[key].toLowerCase().includes("small")) return acc + 2;
+      if (item[key].toLowerCase().includes("tiny")) return acc + 1;
       return acc;
     }
     return acc;
@@ -341,7 +323,7 @@ async function get_sprints_velocity() {
           title: p.title,
           id: i.sprint.title,
           name: i.sprint.title,
-          countIssueWithoutLabel: 0,
+          countIssueWithoutEstimated: 0,
           countIssueDoneWithoutTimeSpent: 0,
           sizeOfSprint: 0,
           velocityPrediction: 0,
@@ -351,11 +333,13 @@ async function get_sprints_velocity() {
 
       // Update sprint metrics for this issue
       const sprint = sprints[sprintTitle];
-      const hasSizeLabel = item.labels.some((l) =>
-        ["x-large", "large", "medium", "small", "tiny"].some((e) =>
-          l.toLowerCase().includes(e),
-        ),
-      );
+      const estimatedSizeIncludesSize = [
+        "x-large",
+        "large",
+        "medium",
+        "small",
+        "tiny",
+      ].some((e) => item.fieldEstimatedSize?.toLowerCase().includes(e));
       const timeSpentIncludesSize = [
         "x-large",
         "large",
@@ -365,8 +349,8 @@ async function get_sprints_velocity() {
       ].some((e) => item.fieldTimeSpent?.toLowerCase().includes(e));
       const isDone = item.column.toLowerCase().includes("done");
 
-      if (!hasSizeLabel) {
-        sprint.countIssueWithoutLabel++;
+      if (!estimatedSizeIncludesSize) {
+        sprint.countIssueWithoutEstimated++;
       }
       if (!timeSpentIncludesSize && isDone) {
         sprint.countIssueDoneWithoutTimeSpent++;
@@ -374,7 +358,7 @@ async function get_sprints_velocity() {
       sprint.sizeOfSprint += itemReduce("fieldEstimatedSize")(0, item);
       sprint.velocityActual += itemReduce("fieldTimeSpent")(0, item);
       if (isDone) {
-        sprint.velocityPrediction += itemReduce("fieldTimeSpent")(0, item);
+        sprint.velocityPrediction += itemReduce("fieldEstimatedSize")(0, item);
       }
     }
   }
@@ -403,18 +387,16 @@ async function get_sprints_velocity() {
 
     const rdb = sprint.title.toLowerCase().includes("rdb");
 
-    console.log(
-      `Processing sprint: ${sprint.name} (${sprint.id}) from ${rdb ? "RDB" : "Ophio"}`,
-    );
+    console.log(`Processing sprint: ${sprint.name} (${sprint.title})`);
 
     const title = `**${sprint.name}**`;
     const list = [
       `id: ${sprint.id} (${sprint.title})`,
-      `**Number of issues without label (excluding buffer):** *${sprint.countIssueWithoutLabel}* ;`,
-      `**Number of issues done without size:** *${sprint.countIssueDoneWithoutTimeSpent}* ;`,
-      `**Size of Sprint (based on labels, exclude buffer):** *${sprint.sizeOfSprint}* ;`,
-      `**Velocity actual (issues done based on size):** *${sprint.velocityActual}* ;`,
-      `**Velocity prediction (issues done based on labels):** *${sprint.velocityPrediction}* ;`,
+      `**Number of issues without estimated time:** *${sprint.countIssueWithoutEstimated}* ;`,
+      `**Number of issues done without time spend:** *${sprint.countIssueDoneWithoutTimeSpent}* ;`,
+      `**Size of Sprint (based on estimated times):** *${sprint.sizeOfSprint}* ;`,
+      `**Velocity actual (issues done based on time spends):** *${sprint.velocityActual}* ;`,
+      `**Velocity prediction (issues done based on estimated):** *${sprint.velocityPrediction}* ;`,
     ];
     // Try to find an existing message to update
     const message = messages
