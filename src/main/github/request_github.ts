@@ -216,7 +216,7 @@ export interface ProjectsQuery {
             type: string;
             content: {
               number: number;
-            };
+            } | null;
             status: {
               name: string;
             } | null;
@@ -230,7 +230,7 @@ export interface ProjectsQuery {
               title: string;
               startDate: string;
               duration: number;
-            };
+            } | null;
           }[];
         };
       }[];

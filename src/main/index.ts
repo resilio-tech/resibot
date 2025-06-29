@@ -218,7 +218,7 @@ export async function check_closed_issues_by_releases(
 }
 
 export interface ProjectItem {
-  sprint: string,
+  sprint: string;
   number: number;
   closed: boolean;
   column: string;
@@ -305,21 +305,19 @@ async function get_sprints_velocity() {
 
   for (const p of projects_query) {
     // Only consider Roadmap projects
-    if (!p.title.includes("Roadmap")) continue;
+    if (p.title !== "RDB Roadmap" && p.title !== "RTech Roadmap") continue;
 
     for (const i of p.items.nodes) {
       // Skip items that are incomplete or not linked to an issue
-      if (
-        i.status === null ||
-        !i.sprint?.title ||
-        !i.content?.number
-      )
-        continue;
+      if (i.status === null || !i.sprint || !i.content) continue;
 
       const sprintTitle = i.sprint.title;
       const repository_name = p.title.includes("RDB") ? "resilio-db" : "ophio";
 
-      const issue = await get_issue_by_number(repository_name, i.content.number).catch(() => null);
+      const issue = await get_issue_by_number(
+        repository_name,
+        i.content.number,
+      ).catch(() => null);
       if (issue === null) continue;
 
       // Convert item to internal format
@@ -334,7 +332,7 @@ async function get_sprints_velocity() {
       };
 
       // Initialize sprint entry if it doesn't exist
-      if (!sprints[sprintTitle]) {
+      if (Object.keys(sprints).indexOf(sprintTitle) === -1) {
         sprints[sprintTitle] = {
           id: sprintTitle,
           name: sprintTitle,
@@ -351,11 +349,15 @@ async function get_sprints_velocity() {
       const hasSizeLabel = item.labels.some((l) =>
         ["x-large", "large", "medium", "small", "tiny"].some((e) =>
           l.toLowerCase().includes(e),
-        )
+        ),
       );
-      const timeSpentIncludesSize = ["x-large", "large", "medium", "small", "tiny"].some((e) =>
-        item.fieldTimeSpent?.toLowerCase().includes(e),
-      );
+      const timeSpentIncludesSize = [
+        "x-large",
+        "large",
+        "medium",
+        "small",
+        "tiny",
+      ].some((e) => item.fieldTimeSpent?.toLowerCase().includes(e));
       const isDone = item.column.toLowerCase().includes("done");
 
       if (!hasSizeLabel) {
