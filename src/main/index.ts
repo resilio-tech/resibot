@@ -314,7 +314,7 @@ async function get_sprints_velocity() {
       // Skip items that are incomplete or not linked to an issue
       if (i.status === null || !i.sprint || !i.content) continue;
 
-      const sprintTitle = i.sprint.title;
+      const sprintTitle = `${i.sprint.title}-${p.title}`;
       const repository_name = p.title.includes("RDB") ? "resilio-db" : "ophio";
 
       const issue = await get_issue_by_number(
@@ -325,7 +325,7 @@ async function get_sprints_velocity() {
 
       // Convert item to internal format
       const item: ProjectItem = {
-        sprint: sprintTitle,
+        sprint: i.sprint.title,
         number: i.content.number,
         closed: issue.state === "closed",
         column: i.status.name,
@@ -339,8 +339,8 @@ async function get_sprints_velocity() {
         console.log(`Creating new sprint entry: ${sprintTitle}`);
         sprints[sprintTitle] = {
           title: p.title,
-          id: sprintTitle,
-          name: sprintTitle,
+          id: i.sprint.title,
+          name: i.sprint.title,
           countIssueWithoutLabel: 0,
           countIssueDoneWithoutTimeSpent: 0,
           sizeOfSprint: 0,
