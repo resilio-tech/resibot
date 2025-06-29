@@ -433,7 +433,7 @@ async function main() {
   await connect_discord();
   await check_closed_issues_by_releases("ophio");
   await check_closed_issues_by_releases("resilio-db");
-  discord_status().then().catch(console.error);
+  // discord_status().then().catch(console.error);
   // interval("Monday", 11, 20, discord_send_message_for_meeting);
   get_sprints_velocity();
 }
