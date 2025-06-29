@@ -394,7 +394,7 @@ async function get_sprints_velocity() {
   send_typing_to_channel(channel_id);
 
   const sprint_keys = Object.keys(sprints).sort((a, b) => a.localeCompare(b));
-  for (const key in sprint_keys) {
+  for (const key of sprint_keys) {
     const sprint = sprints[key];
 
     if (sprint === undefined) {
@@ -421,8 +421,9 @@ async function get_sprints_velocity() {
       .filter((m) => m.author.displayName == "Resibot")
       .find(
         (m) =>
-          m.embeds[0].description?.includes(sprint.id) === true ||
-          m.embeds[0].title === title,
+          m.embeds[0].description?.includes(
+            `${sprint.id} (${sprint.title})`,
+          ) === true || m.embeds[0].title === title,
       );
     if (message) {
       update_message_discord(
