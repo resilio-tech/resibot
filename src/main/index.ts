@@ -395,6 +395,10 @@ async function get_sprints_velocity() {
   for (const key in sprint_keys) {
     const sprint = sprints[key];
 
+    if (sprint === undefined) {
+      continue;
+    }
+
     const rdb = sprint.name.toLowerCase().includes("rdb");
 
     console.log(
