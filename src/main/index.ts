@@ -228,6 +228,7 @@ export interface ProjectItem {
 }
 
 export interface Project {
+  title: string;
   id: string;
   name: string;
   countIssueWithoutLabel: number;
@@ -337,6 +338,7 @@ async function get_sprints_velocity() {
       if (Object.keys(sprints).indexOf(sprintTitle) === -1) {
         console.log(`Creating new sprint entry: ${sprintTitle}`);
         sprints[sprintTitle] = {
+          title: p.title,
           id: sprintTitle,
           name: sprintTitle,
           countIssueWithoutLabel: 0,
@@ -399,7 +401,7 @@ async function get_sprints_velocity() {
       continue;
     }
 
-    const rdb = sprint.name.toLowerCase().includes("rdb");
+    const rdb = sprint.title.toLowerCase().includes("rdb");
 
     console.log(
       `Processing sprint: ${sprint.name} (${sprint.id}) from ${rdb ? "RDB" : "Ophio"}`,
@@ -407,7 +409,7 @@ async function get_sprints_velocity() {
 
     const title = `**${sprint.name}**`;
     const list = [
-      `id: ${sprint.id}`,
+      `id: ${sprint.id} (${sprint.title})`,
       `**Number of issues without label (excluding buffer):** *${sprint.countIssueWithoutLabel}* ;`,
       `**Number of issues done without size:** *${sprint.countIssueDoneWithoutTimeSpent}* ;`,
       `**Size of Sprint (based on labels, exclude buffer):** *${sprint.sizeOfSprint}* ;`,
