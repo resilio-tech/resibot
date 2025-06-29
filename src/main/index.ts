@@ -304,9 +304,11 @@ async function get_sprints_velocity() {
   const sprints: Record<string, Project> = {};
 
   for (const p of projects_query) {
+    console.log(`Try to process project: ${p.title} (${p.id})`);
     // Only consider Roadmap projects
     if (p.title !== "RDB Roadmap" && p.title !== "RTech Roadmap") continue;
 
+    console.log(`Processing project: ${p.title} (${p.id})`);
     for (const i of p.items.nodes) {
       // Skip items that are incomplete or not linked to an issue
       if (i.status === null || !i.sprint || !i.content) continue;
@@ -333,6 +335,7 @@ async function get_sprints_velocity() {
 
       // Initialize sprint entry if it doesn't exist
       if (Object.keys(sprints).indexOf(sprintTitle) === -1) {
+        console.log(`Creating new sprint entry: ${sprintTitle}`);
         sprints[sprintTitle] = {
           id: sprintTitle,
           name: sprintTitle,
@@ -388,10 +391,16 @@ async function get_sprints_velocity() {
 
   send_typing_to_channel(channel_id);
 
-  for (const key in sprints) {
+  const sprint_keys = Object.keys(sprints).sort((a, b) => a.localeCompare(b));
+  for (const key in sprint_keys) {
     const sprint = sprints[key];
 
     const rdb = sprint.name.toLowerCase().includes("rdb");
+
+    console.log(
+      `Processing sprint: ${sprint.name} (${sprint.id}) from ${rdb ? "RDB" : "Ophio"}`,
+    );
+
     const title = `**${sprint.name}**`;
     const list = [
       `id: ${sprint.id}`,
