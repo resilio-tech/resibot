@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import {
   get_lasts_messages_on_topic,
   get_name_of_stream_from_repository,
+  get_topic_owner,
   get_topics_for_issues,
   post_message_on_topic,
 } from "./zulip/request_zulip";
@@ -208,10 +209,12 @@ export async function check_closed_issues_by_releases(
         )
       )
         continue;
+      const message = await get_topic_owner(stream_name, t.name);
+      const owner = message.sender_full_name;
       post_message_on_topic(
         stream_name,
         t.name,
-        `Resolved by release: ${rels.join(", ")}\nCheck that the issue is really resolved and close it.`,
+        `Resolved by release: ${rels.join(", ")}\n@**${owner}** Check that the issue is really resolved and close it.`,
       );
     }
   }

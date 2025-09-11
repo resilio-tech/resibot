@@ -122,6 +122,7 @@ export interface Message {
   id: number;
   content: string;
   sender_email: string;
+  sender_full_name: string;
 }
 
 export async function get_lasts_messages_on_topic(
@@ -161,6 +162,27 @@ export async function update_topic_name(
       },
     },
   );
+}
+
+export async function get_topic_owner(
+  stream_name: string,
+  topic_name: string,
+): Promise<Message> {
+  const getter = await axios.get<{ messages: Message[] }>(
+    `${ZULIP_SITE}/api/v1/messages`,
+    {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${ZULIP_EMAIL}:${ZULIP_API_KEY}`).toString("base64")}`,
+      },
+      params: {
+        num_after: 1,
+        num_before: 0,
+        narrow: JSON.stringify([{ operator: "topic", operand: topic_name }]),
+        anchor: "oldest",
+      },
+    },
+  );
+  return getter.data.messages[0];
 }
 
 export async function post_message_on_topic(
