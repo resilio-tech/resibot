@@ -157,15 +157,17 @@ export async function check_closed_issues_by_releases(
   repository_name: string,
 ): Promise<void> {
   const releases = await get_pull_requests_by_releases(repository_name);
-  // console.log(releases);
   const stream_name = get_name_of_stream_from_repository(repository_name);
   if (stream_name === undefined) return;
 
   const topics = await get_topics_for_issues(stream_name);
+  console.log(
+    `[${repository_name}] Checking ${topics.length} topic(s) against ${releases.length} release(s)`,
+  );
   for (const t of topics) {
     const topic_issues = await Promise.all(
-      t.issues.map(
-        async (i) => await get_issue_by_number_graphql(repository_name, i),
+      t.issues.map((i) =>
+        get_issue_by_number_graphql(repository_name, i).catch(() => null),
       ),
     );
     if (
@@ -189,27 +191,26 @@ export async function check_closed_issues_by_releases(
       }
       return c;
     });
-    for (const i of topic_issues) {
-      if (i === null) continue;
-      for (const n of i.closedByPullRequestsReferences.nodes) {
-        for (const r of releases) {
-          if (!r.pull_requests.includes(n.number)) continue;
-        }
-      }
-    }
     if (close_topic.every((c) => c.size > 0)) {
-      const messages = await get_lasts_messages_on_topic(stream_name, t.name);
       const rels = Array.from(
         new Set(close_topic.flatMap((c) => Array.from(c))),
       );
+      const messages = await get_lasts_messages_on_topic(stream_name, t.name);
       if (
         messages.some((m) =>
           m.content.includes(`Resolved by release: ${rels.join(", ")}`),
         )
-      )
+      ) {
+        console.log(
+          `[${repository_name}] "${t.name}" already notified (releases: ${rels.join(", ")})`,
+        );
         continue;
+      }
       const message = await get_topic_owner(stream_name, t.name);
       const owner = message.sender_full_name;
+      console.log(
+        `[${repository_name}] "${t.name}" resolved by release ${rels.join(", ")}; notifying owner @${owner}`,
+      );
       post_message_on_topic(
         stream_name,
         t.name,
