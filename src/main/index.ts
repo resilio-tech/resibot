@@ -207,6 +207,12 @@ export async function check_closed_issues_by_releases(
         continue;
       }
       const message = await get_topic_owner(stream_name, t.name);
+      if (!message) {
+        console.log(
+          `[${repository_name}] "${t.name}" resolved by release ${rels.join(", ")} but no owner found; skipping`,
+        );
+        continue;
+      }
       const owner = message.sender_full_name;
       console.log(
         `[${repository_name}] "${t.name}" resolved by release ${rels.join(", ")}; notifying owner @${owner}`,

@@ -136,7 +136,10 @@ export async function get_lasts_messages_on_topic(
     params: {
       num_after: 0,
       num_before: 1000,
-      narrow: JSON.stringify([{ operator: "topic", operand: topic_name }]),
+      narrow: JSON.stringify([
+        { operator: "stream", operand: stream_name },
+        { operator: "topic", operand: topic_name },
+      ]),
       anchor: "newest",
     },
   });
@@ -167,7 +170,7 @@ export async function update_topic_name(
 export async function get_topic_owner(
   stream_name: string,
   topic_name: string,
-): Promise<Message> {
+): Promise<Message | undefined> {
   const getter = await axios.get<{ messages: Message[] }>(
     `${ZULIP_SITE}/api/v1/messages`,
     {
@@ -177,7 +180,10 @@ export async function get_topic_owner(
       params: {
         num_after: 1,
         num_before: 0,
-        narrow: JSON.stringify([{ operator: "topic", operand: topic_name }]),
+        narrow: JSON.stringify([
+          { operator: "stream", operand: stream_name },
+          { operator: "topic", operand: topic_name },
+        ]),
         anchor: "oldest",
       },
     },
