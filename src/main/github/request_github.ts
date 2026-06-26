@@ -147,32 +147,49 @@ export async function create_issue_comment(
 }
 
 export interface GithubRelease {
-  id: number;
   tag_name: string;
   name: string;
   body: string;
 }
 
+// The REST endpoint GET /releases unreliably omits very recent releases
+// (observed: a published, non-draft release missing entirely from the list),
+// which silently breaks the release-resolution matching. GraphQL returns them
+// correctly, so we enumerate releases through it instead.
 export async function get_releases_from_repository(
   repository_name: string,
 ): Promise<GithubRelease[]> {
-  return new Promise((resolve, reject) => {
-    axios
-      .get(
-        `https://api.github.com/repos/resilio-tech/${repository_name}/releases`,
-        {
-          headers: {
-            Authorization: `Bearer ${GITHUB_TOKEN}`,
-          },
-        },
-      )
-      .then((response) => {
-        resolve(response.data);
-      })
-      .catch((error) => {
-        reject(error.response.data);
-      });
-  });
+  const response = await axios.post(
+    "https://api.github.com/graphql",
+    {
+      query: `query {
+        repository(owner: "resilio-tech", name: "${repository_name}") {
+          releases(first: 100, orderBy: { field: CREATED_AT, direction: DESC }) {
+            nodes {
+              name
+              tagName
+              description
+            }
+          }
+        }
+      }`,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+      },
+    },
+  );
+  const nodes = response.data.data.repository.releases.nodes as {
+    name: string | null;
+    tagName: string;
+    description: string | null;
+  }[];
+  return nodes.map((n) => ({
+    tag_name: n.tagName,
+    name: n.name || n.tagName,
+    body: n.description ?? "",
+  }));
 }
 
 export interface Release {
