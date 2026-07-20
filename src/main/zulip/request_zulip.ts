@@ -78,7 +78,7 @@ export interface Topic {
 
 export function get_name_of_stream_from_repository(repository_name: string) {
   if (repository_name === "ophio") {
-    return "61_support_ophio";
+    return "61_ophio_support";
   }
   if (repository_name === "resilio-db") {
     return "64_support_resilioDB";

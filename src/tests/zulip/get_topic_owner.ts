@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 async function main() {
-  const stream = "61_support_ophio";
+  const stream = "61_ophio_support";
   const topic = "#5945 - Select a domain";
   const message = await get_topic_owner(stream, topic);
   console.log(message?.sender_full_name ?? "no owner found");
